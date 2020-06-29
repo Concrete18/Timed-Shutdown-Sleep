@@ -5,8 +5,6 @@ import sys
 import os
 
 
-# Current AC Power Setting Index: 0x00000a8c\r\n
-# powercfg /q 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c SUB_SLEEP
 def get_standby_time():
     # Gets Active Power scheme
     current_scheme = str(subprocess.check_output([f"powercfg", "/getactivescheme"])).split(' ')[3]
@@ -20,7 +18,6 @@ def get_standby_time():
 
 def Timed_shutdown_sleep():
     def_standbuy = get_standby_time()
-    print(f'Default Standby Time is {def_standbuy} minutes.')
     subprocess.call(f"powercfg -change -standby-timeout-ac {def_standbuy}")
     print('Shutdown/Sleep Timer\n')
     last_run = dt.datetime.now()
@@ -31,7 +28,8 @@ def Timed_shutdown_sleep():
     print('')
     if response > def_standbuy:
         subprocess.call(f"powercfg -change -standby-timeout-ac {timer + 5}")
-        print('Standy Timer was changed so do not close manually so it goes back to default.\n')
+        print(f'Default Standby Time is {def_standbuy} minutes.\n\
+            Standy Timer was changed so do not close manually so it goes back to default.\n')
     while timer > 0:
         if dt.datetime.now() - last_run >= dt.timedelta(minutes=1.1):
             response = input('Sleep Detected: Press Enter to close or type r to restart.')
@@ -45,7 +43,7 @@ def Timed_shutdown_sleep():
             min_plur = 'Minute'
         else:
             min_plur = 'Minutes'
-        print(f'System will {power[action]} in {min_left} {min_plur} and {int(timer % 60)} Seconds.         ', end='\r')
+        print(f'System will {power[action]} in {min_left} {min_plur} and {int(timer % 60)} Seconds.        ', end='\r')
         time.sleep(1)
         timer -= 1
         last_run = dt.datetime.now()
