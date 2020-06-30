@@ -1,8 +1,14 @@
 import datetime as dt
+import configparser
 import subprocess
 import time
 import sys
 import os
+
+Config = configparser.ConfigParser()
+Config.read('Config.ini')
+default_sleep_standby = Config.get('Settings', 'default_sleep_standby')
+check_standby = Config.get('Settings', 'check_standby')
 
 
 def get_standby_time():
@@ -16,9 +22,12 @@ def get_standby_time():
     return int(int(cur_standby_time, 16) / 60)
 
 
-def Timed_shutdown_sleep():
-    def_standbuy = get_standby_time()
-    subprocess.call(f"powercfg -change -standby-timeout-ac {def_standbuy}")
+def Timed_shutdown_sleep(use_config, config_standby):
+    if use_config == 1:
+        def_standby = get_standby_time()
+    else:
+        def_standby = config_standby
+    subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
     print('Shutdown/Sleep Timer\n')
     last_run = dt.datetime.now()
     power = {1:'sleep', 2:'shutdown'}
@@ -26,9 +35,9 @@ def Timed_shutdown_sleep():
     response = float(input(f'\nHow long till you want your PC to {power[action]} in minutes.\n'))
     timer = response * 60
     print('')
-    if response > def_standbuy:
+    if response > def_standby:
         subprocess.call(f"powercfg -change -standby-timeout-ac {timer + 5}")
-        print(f'Default Standby Time is {def_standbuy} minutes.\n\
+        print(f'Default Standby Time is {def_standby} minutes.\n\
             Standy Timer was changed so do not close manually so it goes back to default.\n')
     while timer > 0:
         if dt.datetime.now() - last_run >= dt.timedelta(minutes=1.1):
@@ -36,7 +45,7 @@ def Timed_shutdown_sleep():
             if response == 'r':
                 Timed_shutdown_sleep()
             else:
-                subprocess.call(f"powercfg -change -standby-timeout-ac {def_standbuy}")
+                subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
                 sys.exit()
         min_left = int(timer / 60)
         if min_left == 1:
@@ -48,7 +57,7 @@ def Timed_shutdown_sleep():
         timer -= 1
         last_run = dt.datetime.now()
     print('Timer Finished')
-    subprocess.call(f"powercfg -change -standby-timeout-ac {def_standbuy}")
+    subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
     print(f'\n{power[action].capitalize()} Initiated')
     if action == 1: # Sleep
         os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
@@ -58,5 +67,5 @@ def Timed_shutdown_sleep():
         os.system("shutdown /s /t 1")
     input()
 
-
-Timed_shutdown_sleep()
+if __name__ == '__main__':
+    Timed_shutdown_sleep(check_standby, default_sleep_standby)
