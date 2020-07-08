@@ -100,7 +100,7 @@ def create_window():
     Question.grid(columnspan=4, row=1)
 
     # Todo - Add numbers only validation
-    Timer_Entry = Tk.Entry(Main_GUI, width=10, bd=2, font=(BaseFont, 13), justify='center', bg='grey95')
+    Timer_Entry = Tk.Spinbox(Main_GUI, from_=1, to=1000, width=6, bd=2, font=(BaseFont, 13), justify='center', bg='grey95')
     Timer_Entry.grid(columnspan=4, row=2)
 
     Sleep_Button = Tk.Button(Main_GUI, text=f'Sleep Computer', font=(BaseFont, 11), width=20, command=partial(Timed_shutdown_sleep, 'Sleep'))
