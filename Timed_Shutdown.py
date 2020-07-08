@@ -14,6 +14,10 @@ Config.read('Config.ini')
 def create_window():
     default_sleep_standby = Config.get('Settings', 'default_sleep_standby')
     check_standby = Config.get('Settings', 'check_standby')
+    if check_standby == 1:
+        def_standby = int(get_standby_time())
+    else:
+        def_standby = int(default_sleep_standby)
 
 
     def get_standby_time():
@@ -28,10 +32,6 @@ def create_window():
 
 
     def Timed_shutdown_sleep(action):
-        if check_standby == 1:
-            def_standby = int(get_standby_time())
-        else:
-            def_standby = int(default_sleep_standby)
         subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
         last_run = dt.datetime.now()
         try:
@@ -62,19 +62,15 @@ def create_window():
             last_run = dt.datetime.now()
         subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
         if action == 'Sleep': # Sleep
-            print(action)
-            # os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
-            # time.sleep(10)
-            # sys.exit()
+            os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
+            time.sleep(10)
+            sys.exit()
         elif action == 'Shutdown': # Shutdown
-            print(action)
-            # os.system("shutdown /s /t 1")
-        Main_GUI.destroy()
+            os.system("shutdown /s /t 1")
 
 
     def Cancel_Func():
-        # Todo - Fix below function.
-        # subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
+        subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
         sys.exit()
 
 
@@ -99,7 +95,6 @@ def create_window():
     Question = Tk.Label(Title_Frame, text='Enter Time in minutes before action starts.', font=(BoldBaseFont, 12), bg=Background)
     Question.grid(columnspan=4, row=1)
 
-    # Todo - Add numbers only validation
     Timer_Entry = Tk.Spinbox(Main_GUI, from_=1, to=1000, width=6, bd=2, font=(BaseFont, 13), justify='center', bg='grey95')
     Timer_Entry.grid(columnspan=4, row=2)
 
