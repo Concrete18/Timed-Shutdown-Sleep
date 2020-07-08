@@ -34,11 +34,7 @@ def create_window():
     def Timed_shutdown_sleep(action):
         subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
         last_run = dt.datetime.now()
-        try:
-            delay = int(Timer_Entry.get())
-        except ValueError:
-            print('Invalid Int')
-            return
+        delay = int(Timer_Entry.get())
         Sleep_Button.config(state='disabled')
         Shutdown_Button.config(state='disabled')
         Cancel_Button.config(state='normal')
