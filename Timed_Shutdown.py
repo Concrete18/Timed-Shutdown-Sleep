@@ -29,17 +29,21 @@ def create_window():
 
     def Timed_shutdown_sleep(action):
         if check_standby == 1:
-            def_standby = get_standby_time()
+            def_standby = int(get_standby_time())
         else:
-            def_standby = default_sleep_standby
+            def_standby = int(default_sleep_standby)
         subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
         last_run = dt.datetime.now()
-        delay = Timer_Entry.get()
+        try:
+            delay = int(Timer_Entry.get())
+        except ValueError:
+            print('Invalid Int')
+            return
         Sleep_Button.config(state='disabled')
         Shutdown_Button.config(state='disabled')
         Cancel_Button.config(state='normal')
-        timer = int(delay) * 60
-        if delay > def_standby:
+        timer = delay * 60
+        if int(delay) > def_standby:
             subprocess.call(f"powercfg -change -standby-timeout-ac {timer + 5}")
         thread = threading.Thread(target=Time_Loop, args=(timer, action, last_run, def_standby), daemon=True)
         thread.start()
@@ -52,14 +56,7 @@ def create_window():
                 sys.exit()
             min_left = int(timer / 60)
             sec_left = "{0:0=2d}".format(int(timer % 60))
-            if min_left == 1:
-                min_plur = 'Minute'
-            else:
-                min_plur = 'Minutes'
-            if min_left >= 1:
-                Timer_Display.config(text=f'Time Left: {min_left}:{sec_left}')
-            else:
-                Timer_Display.config(text=f'Time Left: 0 minutes and {sec_left} seconds')
+            Timer_Display.config(text=f'Time Left: {min_left}:{sec_left}')
             time.sleep(1)
             timer -= 1
             last_run = dt.datetime.now()
@@ -76,6 +73,7 @@ def create_window():
 
 
     def Cancel_Func():
+        # Todo - Fix below function.
         # subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
         sys.exit()
 
@@ -101,6 +99,7 @@ def create_window():
     Question = Tk.Label(Title_Frame, text='Enter Time in minutes before action starts.', font=(BoldBaseFont, 12), bg=Background)
     Question.grid(columnspan=4, row=1)
 
+    # Todo - Add numbers only validation
     Timer_Entry = Tk.Entry(Main_GUI, width=10, bd=2, font=(BaseFont, 13), justify='center', bg='grey95')
     Timer_Entry.grid(columnspan=4, row=2)
 
