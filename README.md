@@ -1,6 +1,8 @@
 # Timed Shutdown/Sleep
 Set a shutdown or sleep to a specifc amount of minutes away.
 
+![Image of Home Control Interface](https://i.imgur.com/5QFclhr.png)
+
 ## Features
 * Allows whole mumbers and decimals for minute entry.
 * Detects current sleep standby time.
