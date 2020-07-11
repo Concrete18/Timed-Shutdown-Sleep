@@ -1,10 +1,16 @@
 # Timed Shutdown/Sleep
-Set a shutdown or sleep to a specifc amount of minutes away.
+Set a shutdown or sleep to a specific number of minutes away.
 
 ![Image of Home Control Interface](https://i.imgur.com/5QFclhr.png)
 
 ## Features
-* Allows Entering a action delay between 1 and 999 minutes.
+* Allows whole numbers and decimals for minute entry.
 * Detects current sleep standby time.
-* If current PC sleep standby is shorter then the set timer, then it will make it long enough and change it back before iniating the action. (Closing the script before it finishes will leave the standby time on the new setting.)
-* Full Interface Designed.
+* If current PC sleep standby is shorter than the set timer, then it will make it long enough and change it back before initiating the action. (Closing the script before it finishes will leave the standby time on the new setting.)
+* Detection if PC went to sleep before timer went off so it can cancel. This prevents any action from taking place after waking the PC up.
+
+## Requirements
+* configparser
+
+## To Do
+* Warning or window focus if timer is within configurable threshold.
