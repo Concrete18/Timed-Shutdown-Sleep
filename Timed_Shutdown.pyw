@@ -33,7 +33,7 @@ def create_window():
 
     def Timed_shutdown_sleep(action):
         subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
-        last_run = dt.datetime.now()
+        # last_run = dt.datetime.now()
         delay = int(Timer_Entry.get())
         Sleep_Button.config(state='disabled')
         Shutdown_Button.config(state='disabled')
@@ -41,21 +41,27 @@ def create_window():
         timer = delay * 60
         if int(delay) > def_standby:
             subprocess.call(f"powercfg -change -standby-timeout-ac {timer + 5}")
-        thread = threading.Thread(target=Time_Loop, args=(timer, action, last_run, def_standby), daemon=True)
+        thread = threading.Thread(target=Time_Loop, args=(timer, action, def_standby), daemon=True)
         thread.start()
 
 
-    def Time_Loop(timer, action, last_run, def_standby):
+    def Time_Loop(timer, action, def_standby):
+        last_run = dt.datetime.now()
         while timer > 0:
-            if dt.datetime.now() - last_run >= dt.timedelta(minutes=1.1):
-                subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
-                sys.exit()
+            print(dt.datetime.now() - last_run)
+            if dt.datetime.now() - last_run >= dt.timedelta(seconds=10):
+                print('Sleep Detected')
+                Sleep_Button.config(state='normal')
+                Shutdown_Button.config(state='normal')
+                Cancel_Button.config(state='disabled')
+                # Cancel_Func()
+                break
+            last_run = dt.datetime.now()
             min_left = int(timer / 60)
             sec_left = "{0:0=2d}".format(int(timer % 60))
             Timer_Display.config(text=f'Time Left: {min_left}:{sec_left}')
             time.sleep(1)
             timer -= 1
-            last_run = dt.datetime.now()
         subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
         if action == 'Sleep': # Sleep
             os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
@@ -67,6 +73,9 @@ def create_window():
 
     def Cancel_Func():
         subprocess.call(f"powercfg -change -standby-timeout-ac {def_standby}")
+        # Sleep_Button.config(state='normal')
+        # Shutdown_Button.config(state='normal')
+        # Cancel_Button.config(state='disabled')
         sys.exit()
 
 
@@ -74,7 +83,6 @@ def create_window():
     Background = 'White'
     BoldBaseFont = "Arial Bold"
     BaseFont = "Arial"
-    FontColor = "Black"
 
     Main_GUI = Tk.Tk()
     Main_GUI.title("Timed Shutdown and Sleep")
