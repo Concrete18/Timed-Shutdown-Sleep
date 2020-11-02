@@ -1,7 +1,7 @@
 {
 "config":
     {
-    "default_sleep_standby": 45,
-    "use_def_standby": 1
+    "default_sleep_standby": 60,
+    "use_default_standby": 0
     }
 }
