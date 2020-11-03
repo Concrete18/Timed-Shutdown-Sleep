@@ -1,8 +1,8 @@
+from time import sleep
 import datetime as dt
 import tkinter as Tk
 import subprocess
 import threading
-import time
 import json
 import sys
 import os
@@ -30,8 +30,7 @@ class Timer:
         BoldBaseFont = "Arial Bold"
         BaseFont = "Arial"
 
-        app_width = 425
-        app_height = 240
+        app_width, app_height = 415, 237
         width = int((self.master.winfo_screenwidth()-app_width)/2)
         height = int((self.master.winfo_screenheight()-app_height)/2)
 
@@ -55,11 +54,11 @@ class Timer:
             justify='center', bg='grey95')
         self.Timer_Entry.grid(columnspan=4, row=2)
 
-        self.Sleep_Button = Tk.Button(self.master, text=f'Sleep Computer', font=(BaseFont, 11), width=20,
+        self.Sleep_Button = Tk.Button(self.master, text=f'Sleep', font=(BaseFont, 12), width=10,
             command=lambda: self.Timed_shutdown_sleep('Sleep'))
         self.Sleep_Button.grid(column=1, row=3, pady=(10, 10))
 
-        self.Shutdown_Button = Tk.Button(self.master, text=f'Shutdown Computer', font=(BaseFont, 11), width=20,
+        self.Shutdown_Button = Tk.Button(self.master, text=f'Shutdown', font=(BaseFont, 12), width=10,
             command=lambda: self.Timed_shutdown_sleep('Shutdown'))
         self.Shutdown_Button.grid(column=2, row=3, pady=(10, 10))
 
@@ -70,15 +69,14 @@ class Timer:
             bg=Background)
         self.Timer_Display.grid(columnspan=4, row=0)
 
-        self.Cancel_Button = Tk.Button(self.Timer_Frame, text=f'Cancel Action', font=(BaseFont, 11), width=20,
+        self.Cancel_Button = Tk.Button(self.Timer_Frame, text=f'Cancel', font=(BaseFont, 12), width=10,
             command=self.Cancel_Timer, state='disabled')
         self.Cancel_Button.grid(columnspan=4, row=1, pady=(10, 1))
 
 
     def Set_Standby_Time(self):
-        '''Gets Active Power scheme.'''
+        '''Gets Current Scheme Sleep Standby time using cmd a command output.'''
         current_scheme = str(subprocess.check_output([f"powercfg", "/getactivescheme"])).split(' ')[3]
-        # Gets Current Scheme Sleep Standby time.
         output = str(subprocess.check_output([f"powercfg", "/q", current_scheme, "SUB_SLEEP"]))
         output.split(' ')[1][:-4]
         string = 'Current AC Power Setting Index:'
@@ -91,7 +89,7 @@ class Timer:
 
         Arguments:
 
-        action -- sleep or shutdown determines what occurs at timers end
+        action -- sleep or shutdown determines what happens when the timer expires
         '''
         subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
         delay = int(self.Timer_Entry.get())
@@ -106,29 +104,31 @@ class Timer:
 
 
     def Time_Tracker(self, action):
-        '''Tracks time left with a new thread and runs actions '''
+        '''Tracks time left with a new thread and runs the entered action when it reaches 0.'''
         self.cancel = 0
         self.last_run = dt.datetime.now()
         while self.timer > 0:
-            print(dt.datetime.now() - self.last_run)
-            print(self.standby_time)
-            if dt.datetime.now() - self.last_run >= dt.timedelta(seconds=10):
+            # detects cancel button being pressed
+            if self.cancel == 1:
+                self.Cancel_Timer()
+                break
+            # detects computer went to sleep during timer
+            if dt.datetime.now() - self.last_run >= dt.timedelta(seconds=20):
                 print('Sleep Detected')
                 self.Cancel_Timer()
-                self.cancel = 1
                 break
-            self.last_run = dt.datetime.now()
+            self.last_run = dt.datetime.now()  # sets last second increment for sleep detection
             min_left = int(self.timer / 60)
             sec_left = "{0:0=2d}".format(int(self.timer % 60))
             self.Timer_Display.config(text=f'Time Left till {action}: {min_left}:{sec_left}')
-            time.sleep(1)
+            sleep(1)
             self.timer -= 1
         subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
         if self.cancel == 0:
+            self.Timer_Display.config(text=f'Time Left till {action}: 0:00')
             if action == 'Sleep':
-                self.Timer_Display.config(text=f'Time Left till {action}: 0:00')
                 os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
-                time.sleep(10)
+                sleep(10)
                 sys.exit()
             elif action == 'Shutdown':
                 os.system("shutdown /s /t 1")
@@ -138,7 +138,7 @@ class Timer:
         '''Resets timer to unset and reconfigures buttons and labels to default state.
         Also sets computer standby to original settings'''
         subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-        self.cancel = 0
+        self.cancel = 1
         self.Sleep_Button.config(state='normal')
         self.Shutdown_Button.config(state='normal')
         self.Cancel_Button.config(state='disabled')
