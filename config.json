@@ -2,6 +2,7 @@
 "config":
     {
     "default_sleep_standby": 45,
-    "use_default_standby": 0
+    "use_default_standby": 0,
+    "notification_duration": 10
     }
 }
