@@ -1,4 +1,5 @@
 from win10toast import ToastNotifier
+import PySimpleGUIWx as sg
 from time import sleep
 import datetime as dt
 import tkinter as Tk
@@ -21,10 +22,13 @@ class Timer:
         self.timer = 0
         self.cancel = 0
         self.action = ''
+        self.timer_active = 0
+        self.keep_tray = 1
         self.icon = 'Images\Power.ico'
         # config init
         with open('config.json') as json_file:
             data = json.load(json_file)
+        self.enable_minimize = data['config']['enable_minimize']
         self.toast_notif = data['config']['toast_notification']
         self.notif_dur = data['config']['notification_duration']
         use_default_standby = data['config']['use_default_standby']
@@ -101,16 +105,38 @@ class Timer:
         TODO set up minimize to tray
         destroys hides interface and opens up a loop for a tray icon.
         '''
-        pass
+        # hides window
+        self.master.withdraw()
+        # sets up tray
+        self.Tray = sg.SystemTray(
+            menu=['menu',['Exit']],
+            filename=self.icon,
+            tooltip=self.title)
+        # starts tray loop
+        self.keep_tray = 1
+        while self.keep_tray:
+            event = self.Tray.Read()
+            print(event)
+            if event == '__ACTIVATED__' or self.keep_tray == 0:
+                break
+            elif event == 'Exit':
+                exit()
+        # shows window again after tray loop is exited
+        self.Tray.Close()
+        self.master.deiconify()
 
 
     def close_protocol(self):
         '''
         Sets standy time to current default using cmd call and then destroys main window.
         '''
-        subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-        print(f'Stanbdy reset to {self.standby_time}')
-        self.master.destroy()
+        if self.timer_active and self.enable_minimize  == 1:
+            # TODO ask to minimize or just close
+            self.minimize_to_tray()
+        else:
+            subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
+            print(f'Stanbdy reset to {self.standby_time}')
+            self.master.destroy()
 
 
     def get_standby_time(self):
@@ -149,15 +175,20 @@ class Timer:
 
     def timer_end_warning(self):
         '''
+        TODO update docstring
         Shows a Windows Toast Notification when the timer is close to ending.
         Notification duration and popup time set in config.
         '''
-        self.toaster.show_toast(
-            title=self.title,
-            msg=f'{self.timer} seconds till {self.action}.',
-            icon_path=self.icon,
-            duration=self.notif_dur,
-            threaded=True)
+        notif_msg = f'{self.timer} seconds till {self.action}.'
+        if self.toast_notif:
+            self.toaster.show_toast(
+                title=self.title,
+                msg=notif_msg,
+                icon_path=self.icon,
+                duration=self.notif_dur,
+                threaded=True)
+        else:
+            sg.ShowMessage(self.title, message=notif_msg, filename=self.icon, messageicon=None, time=10000)
 
 
     def time_tracker(self):
@@ -166,9 +197,11 @@ class Timer:
         '''
         self.cancel = 0
         self.last_run = dt.datetime.now()
+        self.timer_active = 1
         while self.timer > 0:
+            print(self.timer)
             # runs toast notification at specific time remaining
-            if self.timer == self.notif_dur and self.toast_notif:
+            if self.timer == self.notif_dur:
                 self.timer_end_warning()
             # detects cancel button being pressed
             if self.cancel == 1:
@@ -203,6 +236,7 @@ class Timer:
         '''
         subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
         self.cancel = 1
+        self.timer_active = 0
         self.Sleep_Button.config(state='normal')
         self.Shutdown_Button.config(state='normal')
         self.Cancel_Button.config(state='disabled')
