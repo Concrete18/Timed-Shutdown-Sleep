@@ -22,13 +22,17 @@ class Timer:
         self.cancel = 0
         self.action = ''
         self.icon = 'Images\Power.ico'
-        self.toaster = ToastNotifier()
         # config init
         with open('config.json') as json_file:
             data = json.load(json_file)
+        self.toast_notif = data['config']['toast_notification']
         self.notif_dur = data['config']['notification_duration']
         use_default_standby = data['config']['use_default_standby']
         config_standby_time = data['config']['default_sleep_standby']
+        try:
+            self.toaster = ToastNotifier()
+        except:
+            self.toast_notif = 0
         # standy mode setup
         if use_default_standby == 1:
             self.standby_time = config_standby_time
@@ -42,7 +46,7 @@ class Timer:
         BoldBaseFont = "Arial Bold"
         BaseFont = "Arial"
 
-        app_width, app_height = 415, 237
+        app_width, app_height = 395, 190
         self.master = Tk.Tk()
         width = int((self.master.winfo_screenwidth()-app_width)/2)
         height = int((self.master.winfo_screenheight()-app_height)/2)
@@ -57,27 +61,29 @@ class Timer:
         self.Title_Frame = Tk.Frame(self.master, bg=Background)
         self.Title_Frame.grid(columnspan=4, padx=(20, 20), pady=(5, 10))
 
-        self.Title = Tk.Label(self.Title_Frame, text=self.title, font=(BoldBaseFont, 20), bg=Background)
-        self.Title.grid(column=0, row=0)
+        # self.Title = Tk.Label(self.Title_Frame, text=self.title, font=(BoldBaseFont, 20), bg=Background)
+        # self.Title.grid(column=0, row=0)
 
-        self.Question = Tk.Label(self.Title_Frame, text='Enter Time in minutes before action starts.',
-            font=(BoldBaseFont, 12), bg=Background)
-        self.Question.grid(columnspan=4, row=1)
+        self.instruction = Tk.Label(self.Title_Frame, text='Enter time in minutes then click desired action',
+            font=(BoldBaseFont, 12), bg=Background, anchor='center')
+        self.instruction.grid(columnspan=3, row=1, pady=(10,0))
 
-        self.Timer_Entry = Tk.Spinbox(self.master, from_=1, to=1000, width=6, bd=2, font=(BaseFont, 13),
-            justify='center', bg='grey95')
-        self.Timer_Entry.grid(columnspan=4, row=2)
-
+        pad_x = 14
+        pad_y = 10
         self.Sleep_Button = Tk.Button(self.master, text=f'Sleep', font=(BaseFont, 12), width=10,
             command=lambda: self.timed_shutdown_sleep('Sleep'))
-        self.Sleep_Button.grid(column=1, row=3, pady=(10, 10))
+        self.Sleep_Button.grid(column=0, row=3, padx=pad_x, pady=pad_y)
+
+        self.Timer_Entry = Tk.Spinbox(self.master, from_=1, to=1000, width=9, bd=2, font=(BaseFont, 13),
+            justify='center', bg='grey95')
+        self.Timer_Entry.grid(column=1, row=3, padx=pad_x, pady=pad_y)
 
         self.Shutdown_Button = Tk.Button(self.master, text=f'Shutdown', font=(BaseFont, 12), width=10,
             command=lambda: self.timed_shutdown_sleep('Shutdown'))
-        self.Shutdown_Button.grid(column=2, row=3, pady=(10, 10))
+        self.Shutdown_Button.grid(column=2, row=3, padx=pad_x, pady=pad_y)
 
         self.Timer_Frame = Tk.Frame(self.master, bg=Background)
-        self.Timer_Frame.grid(columnspan=4, row=4, padx=(20, 20), pady=(5, 10))
+        self.Timer_Frame.grid(columnspan=3, row=4, padx=(20, 20), pady=(5, 10))
 
         self.Timer_Display = Tk.Label(self.Timer_Frame, text='Time Left: Waiting to start', font=(BoldBaseFont, 12),
             bg=Background)
@@ -88,6 +94,14 @@ class Timer:
         self.Cancel_Button.grid(columnspan=4, row=1, pady=(10, 6))
 
         self.master.mainloop()
+
+
+    def minimize_to_tray(self):
+        '''
+        TODO set up minimize to tray
+        destroys hides interface and opens up a loop for a tray icon.
+        '''
+        pass
 
 
     def close_protocol(self):
@@ -154,7 +168,7 @@ class Timer:
         self.last_run = dt.datetime.now()
         while self.timer > 0:
             # runs toast notification at specific time remaining
-            if self.timer == self.notif_dur:
+            if self.timer == self.notif_dur and self.toast_notif:
                 self.timer_end_warning()
             # detects cancel button being pressed
             if self.cancel == 1:
