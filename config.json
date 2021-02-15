@@ -3,6 +3,7 @@
     {
     "default_sleep_standby": 45,
     "use_default_standby": 0,
-    "notification_duration": 10
+    "notification_duration": 10,
+    "toast_notification": 1
     }
 }
