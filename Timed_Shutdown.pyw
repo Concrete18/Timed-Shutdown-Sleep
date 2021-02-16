@@ -23,7 +23,7 @@ class Timer:
         self.cancel = 0
         self.action = ''
         self.timer_active = 0
-        self.keep_tray = 1
+        self.keep_tray = 0
         self.icon = 'Images\Power.ico'
         # config init
         with open('config.json') as json_file:
@@ -105,6 +105,7 @@ class Timer:
         TODO set up minimize to tray
         destroys hides interface and opens up a loop for a tray icon.
         '''
+        print('Minimized')
         # hides window
         self.master.withdraw()
         # sets up tray
@@ -123,7 +124,9 @@ class Timer:
                 exit()
         # shows window again after tray loop is exited
         self.Tray.Close()
+        print('Tray closed')
         self.master.deiconify()
+        print('WIndow unhidden')
 
 
     def close_protocol(self):
@@ -213,14 +216,16 @@ class Timer:
                 self.cancel_timer()
                 break
             self.last_run = dt.datetime.now()  # sets last second increment for sleep detection
-            min_left = int(self.timer / 60)
-            sec_left = "{0:0=2d}".format(int(self.timer % 60))
-            self.Timer_Display.config(text=f'Time Left till {self.action}: {min_left}:{sec_left}')
+            if self.keep_tray:
+                min_left = int(self.timer / 60)
+                sec_left = "{0:0=2d}".format(int(self.timer % 60))
+                self.Timer_Display.config(text=f'Time Left till {self.action}: {min_left}:{sec_left}')
             sleep(1)
             self.timer -= 1
         subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
         if self.cancel == 0:
-            self.Timer_Display.config(text=f'Time Left till {self.action}: 0:00')
+            if self.keep_tray:
+                self.Timer_Display.config(text=f'Time Left till {self.action}: 0:00')
             if self.action == 'Sleep':
                 os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
                 sleep(10)

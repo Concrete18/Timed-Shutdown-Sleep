@@ -5,6 +5,6 @@
     "use_default_standby": 0,
     "notification_duration": 10,
     "toast_notification": 1,
-    "enable_minimize": 0
+    "enable_minimize": 1
     }
 }
