@@ -1,8 +1,7 @@
-from win10toast import ToastNotifier
+import tkinter as Tk
 import PySimpleGUIWx as sg
 from time import sleep
 import datetime as dt
-import tkinter as Tk
 import subprocess
 import threading
 import json
@@ -11,40 +10,48 @@ import os
 
 class Timer:
 
+    # sets script directory in case current working directory is different
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir)
+
+    # var init
+    debug = 0
+    title = 'Timed Shutdown and Sleep'
+    last_run = dt.datetime.now()
+    timer = 0
+    cancel = 0
+    action = ''
+    timer_active = 0
+    keep_tray = 0
+    icon = 'Images\Default.ico'
+
 
     def __init__(self):
         '''
         Sets default settings from config.json.
         '''
-        # var init
-        self.title = 'Timed Shutdown and Sleep'
-        self.last_run = dt.datetime.now()
-        self.timer = 0
-        self.cancel = 0
-        self.action = ''
-        self.timer_active = 0
-        self.keep_tray = 0
-        self.icon = 'Images\Power.ico'
         # config init
         with open('config.json') as json_file:
             data = json.load(json_file)
-        self.enable_minimize = data['config']['enable_minimize']
-        self.toast_notif = data['config']['toast_notification']
-        self.notif_dur = data['config']['notification_duration']
-        use_default_standby = data['config']['use_default_standby']
-        config_standby_time = data['config']['default_sleep_standby']
-        try:
-            self.toaster = ToastNotifier()
-        except:
-            self.toast_notif = 0
-        # standy mode setup
-        if use_default_standby == 1:
+        # settings
+        self.enable_minimize = data['settings']['enable_minimize']
+        # notification
+        self.toast_notif = data['notification']['toast_notification']
+        self.notif_dur = data['notification']['notification_duration']
+        # standby
+        use_default_standby = data['standby']['use_default_standby']
+        config_standby_time = data['standby']['default_sleep_standby_in_min']
+        self.max_standby_time = data['standby']['max_standby_time_in_min']
+        if use_default_standby:
             self.standby_time = config_standby_time
         else:
-            self.get_standby_time()
+            self.standby_time = self.get_standby_time()
 
 
     def open_window(self):
+        '''
+        Opens the tkinter window.
+        '''
         # defaults for background and fonts
         Background = 'White'
         BoldBaseFont = "Arial Bold"
@@ -65,9 +72,7 @@ class Timer:
         self.Title_Frame = Tk.Frame(self.master, bg=Background)
         self.Title_Frame.grid(columnspan=4, padx=(20, 20), pady=(5, 10))
 
-        # self.Title = Tk.Label(self.Title_Frame, text=self.title, font=(BoldBaseFont, 20), bg=Background)
-        # self.Title.grid(column=0, row=0)
-
+        # TODO add current standby time interface. Make it change
         self.instruction = Tk.Label(self.Title_Frame, text='Enter time in minutes then click desired action',
             font=(BoldBaseFont, 12), bg=Background, anchor='center')
         self.instruction.grid(columnspan=3, row=1, pady=(10,0))
@@ -78,8 +83,11 @@ class Timer:
             command=lambda: self.timed_shutdown_sleep('Sleep'))
         self.Sleep_Button.grid(column=0, row=3, padx=pad_x, pady=pad_y)
 
-        self.Timer_Entry = Tk.Spinbox(self.master, from_=1, to=1000, width=9, bd=2, font=(BaseFont, 13),
-            justify='center', bg='grey95')
+        self.timer_value = Tk.StringVar(self.master)
+        self.timer_value.set(30)
+
+        self.Timer_Entry = Tk.Spinbox(self.master, textvariable=self.timer_value, from_=1, to=1000, width=9, bd=2,
+            font=(BaseFont, 13), justify='center', bg='grey95')
         self.Timer_Entry.grid(column=1, row=3, padx=pad_x, pady=pad_y)
 
         self.Shutdown_Button = Tk.Button(self.master, text=f'Shutdown', font=(BaseFont, 12), width=10,
@@ -102,57 +110,55 @@ class Timer:
 
     def minimize_to_tray(self):
         '''
-        TODO set up minimize to tray
-        destroys hides interface and opens up a loop for a tray icon.
+        hides interface and opens up a loop for a tray icon.
         '''
         print('Minimized')
         # hides window
         self.master.withdraw()
         # sets up tray
+        icon = f'Images\{self.action}.ico'
         self.Tray = sg.SystemTray(
             menu=['menu',['Exit']],
-            filename=self.icon,
+            filename=icon,
             tooltip=self.title)
         # starts tray loop
         self.keep_tray = 1
         while self.keep_tray:
             event = self.Tray.Read()
-            print(event)
+            if self.debug:
+                print(event)
             if event == '__ACTIVATED__' or self.keep_tray == 0:
                 break
             elif event == 'Exit':
+                self.master.destroy()
                 exit()
         # shows window again after tray loop is exited
         self.Tray.Close()
         print('Tray closed')
         self.master.deiconify()
-        print('WIndow unhidden')
-
-
-    def close_protocol(self):
-        '''
-        Sets standy time to current default using cmd call and then destroys main window.
-        '''
-        if self.timer_active and self.enable_minimize  == 1:
-            # TODO ask to minimize or just close
-            self.minimize_to_tray()
-        else:
-            subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-            print(f'Stanbdy reset to {self.standby_time}')
-            self.master.destroy()
+        self.keep_tray = 0
+        print('Window unhidden')
 
 
     def get_standby_time(self):
         '''
         Gets Current Scheme Sleep Standby time using cmd output.
         '''
+        # gets current power current_scheme
         current_scheme = str(subprocess.check_output([f"powercfg", "/getactivescheme"])).split(' ')[3]
+        # finds output of powercfg command using current_scheme
         output = str(subprocess.check_output([f"powercfg", "/q", current_scheme, "SUB_SLEEP"]))
-        output.split(' ')[1][:-4]
+        # converts output from hexidecimal into decimal
         string = 'Current AC Power Setting Index:'
-        cur_standby_time = output.partition(str(string))[2].split(' ')[1][:-4]
-        self.standby_time = int(int(cur_standby_time, 16) / 60)
-        print(f'Current Stanby Time: {self.standby_time}')
+        cur_standby_time = int(output.partition(str(string))[2].split(' ')[1][:-4], 16)
+        # sets standby_time to minutes from cur_standby_time
+        standby_time = int(cur_standby_time / 60)
+        # sets standby_timeto max ammount if max_standby_time greater then 0
+        if self.max_standby_time > 0 and standby_time > self.max_standby_time:
+            standby_time = self.max_standby_time
+        print(f'Current Standby Time: {standby_time}')
+        return standby_time
+
 
 
     def timed_shutdown_sleep(self, event):
@@ -165,7 +171,7 @@ class Timer:
         '''
         self.action = event
         subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-        delay = int(self.Timer_Entry.get())
+        delay = int(self.timer_value.get())
         self.Sleep_Button.config(state='disabled')
         self.Shutdown_Button.config(state='disabled')
         self.Cancel_Button.config(state='normal')
@@ -179,19 +185,31 @@ class Timer:
     def timer_end_warning(self):
         '''
         TODO update docstring
-        Shows a Windows Toast Notification when the timer is close to ending.
+        Creates a Windows Notification when the timer is close to ending.
         Notification duration and popup time set in config.
         '''
-        notif_msg = f'{self.timer} seconds till {self.action}.'
-        if self.toast_notif:
-            self.toaster.show_toast(
-                title=self.title,
-                msg=notif_msg,
-                icon_path=self.icon,
-                duration=self.notif_dur,
-                threaded=True)
-        else:
-            sg.ShowMessage(self.title, message=notif_msg, filename=self.icon, messageicon=None, time=10000)
+        if self.keep_tray:
+            print('Showing tray balloon')
+            notif_msg = f'{self.timer} seconds till {self.action}.'
+            notif_miliseconds = self.notif_dur*1000
+            self.Tray.ShowMessage(self.title, notif_msg, time=notif_miliseconds)
+
+
+    def run_action(self):
+        '''
+        Runs the selected action.
+        '''
+        # resets standby time to previous or default value
+        subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
+        if self.cancel == 0:  # last moment check to see if cancel was pressed
+            if not self.keep_tray:
+                self.Timer_Display.config(text=f'Time Left till {self.action}: 0:00')
+            if self.action == 'Sleep':
+                os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
+            elif self.action == 'Shutdown':
+                os.system("shutdown /s /t 1")
+            else:
+                print('No Action was selected.')
 
 
     def time_tracker(self):
@@ -200,38 +218,36 @@ class Timer:
         '''
         self.cancel = 0
         self.last_run = dt.datetime.now()
-        self.timer_active = 1
         while self.timer > 0:
-            print(self.timer)
             # runs toast notification at specific time remaining
             if self.timer == self.notif_dur:
                 self.timer_end_warning()
-            # detects cancel button being pressed
-            if self.cancel == 1:
-                self.cancel_timer()
-                break
-            # detects computer went to sleep during timer
+            # detects if computer went to sleep during timer
             if dt.datetime.now() - self.last_run >= dt.timedelta(seconds=20):
                 print('Sleep Detected')
                 self.cancel_timer()
                 break
             self.last_run = dt.datetime.now()  # sets last second increment for sleep detection
+            min_left = int(self.timer / 60)
+            sec_left = "{0:0=2d}".format(int(self.timer % 60))
+            info_text = f'Time Left till {self.action}: {min_left}:{sec_left}'
             if self.keep_tray:
-                min_left = int(self.timer / 60)
-                sec_left = "{0:0=2d}".format(int(self.timer % 60))
-                self.Timer_Display.config(text=f'Time Left till {self.action}: {min_left}:{sec_left}')
+                self.Tray.update(tooltip=self.title + '\n' + info_text)
+            else:
+                self.Timer_Display.config(text=info_text)
             sleep(1)
+            # detects cancel button press
+            if self.cancel == 1:
+                self.cancel_timer()
+                break
             self.timer -= 1
-        subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-        if self.cancel == 0:
+        if self.debug:
+            print(f'Computer {self.action}')
             if self.keep_tray:
-                self.Timer_Display.config(text=f'Time Left till {self.action}: 0:00')
-            if self.action == 'Sleep':
-                os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
-                sleep(10)
-                quit()
-            elif self.action == 'Shutdown':
-                os.system("shutdown /s /t 1")
+                self.Tray.Close()
+            exit()
+        else:
+            self.run_action()
 
 
     def cancel_timer(self):
@@ -239,15 +255,29 @@ class Timer:
         Resets timer to unset and reconfigures buttons and labels to default state.
         Sets computer standby to original settings or default setting.
         '''
+        # sets standby time
         subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-        self.cancel = 1
-        self.timer_active = 0
+        # sets loop ending variables
+        self.cancel = 1  # TODO check if self.timer needs to be set to 0 here
+        # sets button states for canceled state
         self.Sleep_Button.config(state='normal')
         self.Shutdown_Button.config(state='normal')
         self.Cancel_Button.config(state='disabled')
         self.Timer_Display.config(text='Time Left: Waiting to start')
 
 
+    def close_protocol(self):
+        '''
+        Sets standby time to current default using cmd call and then destroys main window.
+        If enable_minimize is 1 then it will minimize to tray instead and only hide the main window.
+        '''
+        if self.timer > 0 and self.enable_minimize:
+            self.minimize_to_tray()
+        else:
+            subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
+            print(f'Standby reset to {self.standby_time}')
+            self.master.destroy()
+
+
 if __name__ == "__main__":
-    App = Timer()
-    App.open_window()
+    Timer().open_window()
