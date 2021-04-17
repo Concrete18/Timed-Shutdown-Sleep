@@ -1,10 +1,14 @@
 {
-"config":
-    {
-    "default_sleep_standby": 45,
-    "use_default_standby": 0,
-    "notification_duration": 10,
-    "toast_notification": 1,
-    "enable_minimize": 1
+    "settings":{
+        "enable_minimize":0
+    },
+    "standby":{
+        "default_sleep_standby_in_min":45,
+        "use_default_standby":0,
+        "max_standby_time_in_min":120
+    },
+    "notification":{
+        "notification_duration":10,
+        "toast_notification":0
     }
 }
