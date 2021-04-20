@@ -68,8 +68,11 @@ class Timer:
         self.Title_Frame = Tk.Frame(self.master, bg=Background)
         self.Title_Frame.grid(columnspan=4, padx=(20, 20), pady=(5, 10))
 
+        # TODO update to detect plugged in state with psutil
         # TODO add current standby time interface. Make it change
-        self.instruction = Tk.Label(self.Title_Frame, text='Enter time in minutes then click desired action',
+        current_standby_info = f'Current Standby Time: {self.standby_time} minutes.'
+        instruction = 'Enter time in minutes then click desired action'
+        self.instruction = Tk.Label(self.Title_Frame, text=f'{current_standby_info}\n{instruction}',
             font=(BoldBaseFont, 12), bg=Background, anchor='center')
         self.instruction.grid(columnspan=3, row=1, pady=(10,0))
 
