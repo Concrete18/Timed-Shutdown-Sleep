@@ -20,6 +20,6 @@ PySimpleGUIWx
 * Detects if PC went to sleep before timer went off so it can cancel. This prevents any action from taking place after waking the PC up.
 * Shows a notification when the selected action is close to starting when minimized.
 
-<!-- ## Todo
+## Todo
 
-* change icon color based on sleep or shutdown timed action. -->
+* Add support check standby setting for battery powered devices.
