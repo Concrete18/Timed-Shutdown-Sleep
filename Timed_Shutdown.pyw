@@ -2,10 +2,7 @@ import tkinter as Tk
 import PySimpleGUIWx as sg
 from time import sleep
 import datetime as dt
-import subprocess
-import threading
-import json
-import os
+import os, json, threading, subprocess
 
 
 class Timer:
@@ -15,15 +12,13 @@ class Timer:
     os.chdir(script_dir)
 
     # var init
-    debug = 0
+    debug_testing = 0  # for skipping shutdown and sleep
     title = 'Timed Shutdown and Sleep'
     last_run = dt.datetime.now()
     timer = 0
     cancel = 0
     action = ''
-    timer_active = 0
     keep_tray = 0
-    icon = 'Images\Default.ico'
 
 
     def __init__(self):
@@ -35,9 +30,10 @@ class Timer:
             data = json.load(json_file)
         # settings
         self.enable_minimize = data['settings']['enable_minimize']
+        self.debug = data['settings']['debug']
         # notification
         self.toast_notif = data['notification']['toast_notification']
-        self.notif_dur = data['notification']['notification_duration']
+        self.notif_threshold = data['notification']['notification_threshold']
         # standby
         use_default_standby = data['standby']['use_default_standby']
         config_standby_time = data['standby']['default_sleep_standby_in_min']
@@ -64,7 +60,7 @@ class Timer:
 
         self.master.geometry(f'{app_width}x{app_height}+{width}+{height}')
         self.master.title(self.title)
-        self.master.iconbitmap(self.icon)
+        self.master.iconbitmap('Images\Default.ico')
         self.master.configure(bg=Background)
         self.master.resizable(width=False, height=False)
         self.master.wm_protocol("WM_DELETE_WINDOW", self.close_protocol)
@@ -112,7 +108,8 @@ class Timer:
         '''
         hides interface and opens up a loop for a tray icon.
         '''
-        print('Minimized')
+        if self.debug:
+            print('Minimized')
         # hides window
         self.master.withdraw()
         # sets up tray
@@ -134,10 +131,12 @@ class Timer:
                 exit()
         # shows window again after tray loop is exited
         self.Tray.Close()
-        print('Tray closed')
+        if self.debug:
+            print('Tray closed')
         self.master.deiconify()
         self.keep_tray = 0
-        print('Window unhidden')
+        if self.debug:
+            print('Window unhidden')
 
 
     def get_standby_time(self):
@@ -160,7 +159,6 @@ class Timer:
         return standby_time
 
 
-
     def timed_shutdown_sleep(self, event):
         '''
         Sleeps or shuts down PC in the specified time frame.
@@ -178,20 +176,19 @@ class Timer:
         self.timer = delay * 60
         if int(delay) > self.standby_time:
             subprocess.call(f"powercfg -change -standby-timeout-ac {self.timer + 5}")
-        thread = threading.Thread(target=self.time_tracker, daemon=True)
-        thread.start()
+        threading.Thread(target=self.time_tracker, daemon=True).start()
 
 
     def timer_end_warning(self):
         '''
-        TODO update docstring
         Creates a Windows Notification when the timer is close to ending.
         Notification duration and popup time set in config.
         '''
         if self.keep_tray:
-            print('Showing tray balloon')
+            if self.debug:
+                print('Showing tray balloon')
             notif_msg = f'{self.timer} seconds till {self.action}.'
-            notif_miliseconds = self.notif_dur*1000
+            notif_miliseconds = self.notif_threshold*1000
             self.Tray.ShowMessage(self.title, notif_msg, time=notif_miliseconds)
 
 
@@ -220,7 +217,7 @@ class Timer:
         self.last_run = dt.datetime.now()
         while self.timer > 0:
             # runs toast notification at specific time remaining
-            if self.timer == self.notif_dur:
+            if self.timer == self.notif_threshold:
                 self.timer_end_warning()
             # detects if computer went to sleep during timer
             if dt.datetime.now() - self.last_run >= dt.timedelta(seconds=20):
@@ -238,10 +235,10 @@ class Timer:
             sleep(1)
             # detects cancel button press
             if self.cancel == 1:
-                self.cancel_timer()
+                # TODO check if cancel_timer is needed here
                 break
             self.timer -= 1
-        if self.debug:
+        if self.debug_testing:  # if debug_testing is True, skips actual final action for testin
             print(f'Computer {self.action}')
             if self.keep_tray:
                 self.Tray.Close()
@@ -258,7 +255,8 @@ class Timer:
         # sets standby time
         subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
         # sets loop ending variables
-        self.cancel = 1  # TODO check if self.timer needs to be set to 0 here
+        self.cancel = 1
+        self.timer = 0
         # sets button states for canceled state
         self.Sleep_Button.config(state='normal')
         self.Shutdown_Button.config(state='normal')
