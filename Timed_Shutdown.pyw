@@ -2,7 +2,7 @@ import tkinter as Tk
 import PySimpleGUIWx as sg
 from time import sleep
 import datetime as dt
-import os, json, threading, subprocess
+import os, json, threading, subprocess, psutil
 
 
 class Timer:
@@ -53,31 +53,31 @@ class Timer:
         BoldBaseFont = "Arial Bold"
         BaseFont = "Arial"
 
-        app_width, app_height = 395, 190
         self.master = Tk.Tk()
+        # window size
+        app_width, app_height = 395, 200
         width = int((self.master.winfo_screenwidth()-app_width)/2)
         height = int((self.master.winfo_screenheight()-app_height)/2)
-
-        self.master.geometry(f'{app_width}x{app_height}+{width}+{height}')
+        self.master.geometry(f'+{width}+{height}')
+        # self.master.geometry(f'{app_width}x{app_height}+{width}+{height}')
+        self.master.resizable(width=False, height=False)
+        # other
         self.master.title(self.title)
         self.master.iconbitmap('Images\Default.ico')
         self.master.configure(bg=Background)
-        self.master.resizable(width=False, height=False)
         self.master.wm_protocol("WM_DELETE_WINDOW", self.close_protocol)
 
         self.Title_Frame = Tk.Frame(self.master, bg=Background)
         self.Title_Frame.grid(columnspan=4, padx=(20, 20), pady=(5, 10))
 
-        # TODO update to detect plugged in state with psutil
         # TODO add current standby time interface. Make it change
-        current_standby_info = f'Current Standby Time: {self.standby_time} minutes.'
-        instruction = 'Enter time in minutes then click desired action'
-        self.instruction = Tk.Label(self.Title_Frame, text=f'{current_standby_info}\n{instruction}',
+        self.current_standby_info = f'Current Standby Time: {self.standby_time} minutes.'
+        self.instruction = 'Enter time in minutes then click desired action'
+        self.info_label = Tk.Label(self.Title_Frame, text=f'{self.current_standby_info}\n{self.instruction}',
             font=(BoldBaseFont, 12), bg=Background, anchor='center')
-        self.instruction.grid(columnspan=3, row=1, pady=(10,0))
+        self.info_label.grid(columnspan=3, row=1, pady=(10,0))
 
-        pad_x = 14
-        pad_y = 10
+        pad_x, pad_y= 14, 10
         self.Sleep_Button = Tk.Button(self.master, text=f'Sleep', font=(BaseFont, 12), width=10,
             command=lambda: self.timed_shutdown_sleep('Sleep'))
         self.Sleep_Button.grid(column=0, row=3, padx=pad_x, pady=pad_y)
@@ -150,8 +150,18 @@ class Timer:
         current_scheme = str(subprocess.check_output([f"powercfg", "/getactivescheme"])).split(' ')[3]
         # finds output of powercfg command using current_scheme
         output = str(subprocess.check_output([f"powercfg", "/q", current_scheme, "SUB_SLEEP"]))
+        # determines if what standby time to use
+        battery = psutil.sensors_battery()
+        if battery is None:
+            self.plugged_in = 1
+        else:
+            self.plugged_in = battery.power_plugged
+        # sets which data to find
+        if self.plugged_in:
+            string = 'Current AC Power Setting Index:'
+        else:
+            string = 'Current DC Power Setting Index:'
         # converts output from hexidecimal into decimal
-        string = 'Current AC Power Setting Index:'
         cur_standby_time = int(output.partition(str(string))[2].split(' ')[1][:-4], 16)
         # sets standby_time to minutes from cur_standby_time
         standby_time = int(cur_standby_time / 60)
@@ -160,6 +170,17 @@ class Timer:
             standby_time = self.max_standby_time
         print(f'Current Standby Time: {standby_time}')
         return standby_time
+
+
+    def reset_standby_time(self):
+        '''
+        Resets standby time to previous or default value.
+
+        '''
+        if self.plugged_in:
+            subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
+        else:
+            subprocess.call(f"powercfg -change -standby-timeout-dc {self.standby_time}")
 
 
     def timed_shutdown_sleep(self, event):
@@ -171,7 +192,7 @@ class Timer:
         action -- sleep or shutdown determines what happens when the timer expires
         '''
         self.action = event
-        subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
+        self.reset_standby_time()
         delay = int(self.timer_value.get())
         self.Sleep_Button.config(state='disabled')
         self.Shutdown_Button.config(state='disabled')
@@ -199,8 +220,7 @@ class Timer:
         '''
         Runs the selected action.
         '''
-        # resets standby time to previous or default value
-        subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
+        self.reset_standby_time()
         if self.cancel == 0:  # last moment check to see if cancel was pressed
             if not self.keep_tray:
                 self.Timer_Display.config(text=f'Time Left till {self.action}: 0:00')
@@ -255,8 +275,7 @@ class Timer:
         Resets timer to unset and reconfigures buttons and labels to default state.
         Sets computer standby to original settings or default setting.
         '''
-        # sets standby time
-        subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
+        self.reset_standby_time()
         # sets loop ending variables
         self.cancel = 1
         self.timer = 0
