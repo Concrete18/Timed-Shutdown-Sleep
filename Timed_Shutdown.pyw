@@ -36,10 +36,14 @@ class Timer:
         self.notif_threshold = data['notification']['notification_threshold']
         # standby
         use_default_standby = data['standby']['use_default_standby']
-        config_standby_time = data['standby']['default_sleep_standby_in_min']
+        config_standby_outlet = data['standby']['default_sleep_standby_outlet']
+        config_standby_battery = data['standby']['default_sleep_standby_battery']
         self.max_standby_time = data['standby']['max_standby_time_in_min']
         if use_default_standby:
-            self.standby_time = config_standby_time
+            if self.check_for_battery_use():
+                self.standby_time = config_standby_battery
+            else:
+                self.standby_time = config_standby_outlet
         else:
             self.standby_time = self.get_standby_time()
 
@@ -70,7 +74,6 @@ class Timer:
         self.Title_Frame = Tk.Frame(self.master, bg=Background)
         self.Title_Frame.grid(columnspan=4, padx=(20, 20), pady=(5, 10))
 
-        # TODO add current standby time interface. Make it change
         self.current_standby_info = f'Current Standby Time: {self.standby_time} minutes.'
         self.instruction = 'Enter time in minutes then click desired action'
         self.info_label = Tk.Label(self.Title_Frame, text=f'{self.current_standby_info}\n{self.instruction}',
@@ -142,6 +145,19 @@ class Timer:
             print('Window unhidden')
 
 
+    @staticmethod
+    def check_for_battery_use():
+        '''
+        Determines if the computer us currently on battery or not.
+        Returns True if it is using battery and False if not.
+        '''
+        battery = psutil.sensors_battery()
+        if battery is None:
+            return False
+        else:
+            return battery.power_plugged
+
+
     def get_standby_time(self):
         '''
         Gets Current Scheme Sleep Standby time using cmd output.
@@ -151,18 +167,14 @@ class Timer:
         # finds output of powercfg command using current_scheme
         output = str(subprocess.check_output([f"powercfg", "/q", current_scheme, "SUB_SLEEP"]))
         # determines if what standby time to use
-        battery = psutil.sensors_battery()
-        if battery is None:
-            self.plugged_in = 1
-        else:
-            self.plugged_in = battery.power_plugged
-        # sets which data to find
-        if self.plugged_in:
-            string = 'Current AC Power Setting Index:'
-        else:
+        self.battery_used = self.check_for_battery_use()
+        # sets which Power Setting to check based on power state
+        if self.battery_used:
             string = 'Current DC Power Setting Index:'
+        else:
+            string = 'Current AC Power Setting Index:'
         # converts output from hexidecimal into decimal
-        cur_standby_time = int(output.partition(str(string))[2].split(' ')[1][:-4], 16)
+        cur_standby_time = int(output.partition(str(string))[2].split(' ')[1][:10], 16)
         # sets standby_time to minutes from cur_standby_time
         standby_time = int(cur_standby_time / 60)
         # sets standby_timeto max ammount if max_standby_time greater then 0
@@ -175,8 +187,8 @@ class Timer:
     def reset_standby_time(self):
         '''
         Resets standby time to previous or default value.
-
         '''
+        print('reset')
         if self.plugged_in:
             subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
         else:
