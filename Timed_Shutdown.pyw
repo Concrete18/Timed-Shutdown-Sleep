@@ -146,7 +146,7 @@ class Timer:
 
 
     @staticmethod
-    def check_for_battery_use():
+    def is_battery_used():
         '''
         Determines if the computer us currently on battery or not.
         Returns True if it is using battery and False if not.
@@ -167,7 +167,7 @@ class Timer:
         # finds output of powercfg command using current_scheme
         output = str(subprocess.check_output([f"powercfg", "/q", current_scheme, "SUB_SLEEP"]))
         # determines if what standby time to use
-        self.battery_used = self.check_for_battery_use()
+        self.battery_used = self.is_battery_used()
         # sets which Power Setting to check based on power state
         if self.battery_used:
             string = 'Current DC Power Setting Index:'
@@ -189,10 +189,10 @@ class Timer:
         Resets standby time to previous or default value.
         '''
         print('reset')
-        if self.plugged_in:
-            subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-        else:
+        if self.battery_used:
             subprocess.call(f"powercfg -change -standby-timeout-dc {self.standby_time}")
+        else:
+            subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
 
 
     def timed_shutdown_sleep(self, event):
