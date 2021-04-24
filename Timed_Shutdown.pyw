@@ -133,6 +133,7 @@ class Timer:
             if event == '__ACTIVATED__' or self.keep_tray == 0:
                 break
             elif event == 'Exit':
+                self.reset_standby_time()
                 self.master.destroy()
                 exit()
         # shows window again after tray loop is exited
@@ -146,7 +147,7 @@ class Timer:
 
 
     @staticmethod
-    def is_battery_used():
+    def plugged_in():
         '''
         Determines if the computer us currently on battery or not.
         Returns True if it is using battery and False if not.
@@ -167,12 +168,12 @@ class Timer:
         # finds output of powercfg command using current_scheme
         output = str(subprocess.check_output([f"powercfg", "/q", current_scheme, "SUB_SLEEP"]))
         # determines if what standby time to use
-        self.battery_used = self.is_battery_used()
+        self.plugged_in = self.plugged_in()
         # sets which Power Setting to check based on power state
-        if self.battery_used:
-            string = 'Current DC Power Setting Index:'
-        else:
+        if self.plugged_in:
             string = 'Current AC Power Setting Index:'
+        else:
+            string = 'Current DC Power Setting Index:'
         # converts output from hexidecimal into decimal
         cur_standby_time = int(output.partition(str(string))[2].split(' ')[1][:10], 16)
         # sets standby_time to minutes from cur_standby_time
@@ -181,6 +182,10 @@ class Timer:
         if self.max_standby_time > 0 and standby_time > self.max_standby_time:
             standby_time = self.max_standby_time
         print(f'Current Standby Time: {standby_time}')
+        if self.plugged_in:
+            print('Device is plugged in.')
+        else:
+            print('Battery is used.')
         return standby_time
 
 
@@ -188,11 +193,13 @@ class Timer:
         '''
         Resets standby time to previous or default value.
         '''
-        print('reset')
-        if self.battery_used:
-            subprocess.call(f"powercfg -change -standby-timeout-dc {self.standby_time}")
-        else:
+        # TODO fix extra repeat on cancel
+        if self.plugged_in:
             subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
+            print(f'Set Plugged in sleep standby to {self.standby_time}.')
+        else:
+            subprocess.call(f"powercfg -change -standby-timeout-dc {self.standby_time}")
+            print(f'Set on battery sleep standby to {self.standby_time}.')
 
 
     def timed_shutdown_sleep(self, event):
@@ -204,14 +211,13 @@ class Timer:
         action -- sleep or shutdown determines what happens when the timer expires
         '''
         self.action = event
-        self.reset_standby_time()
         delay = int(self.timer_value.get())
         self.Sleep_Button.config(state='disabled')
         self.Shutdown_Button.config(state='disabled')
         self.Cancel_Button.config(state='normal')
         self.timer = delay * 60
         if int(delay) > self.standby_time:
-            subprocess.call(f"powercfg -change -standby-timeout-ac {self.timer + 5}")
+            subprocess.call(f"powercfg -change -standby-timeout-ac {delay + 5}")
         threading.Thread(target=self.time_tracker, daemon=True).start()
 
 
@@ -305,9 +311,9 @@ class Timer:
         '''
         if self.timer > 0 and self.enable_minimize:
             self.minimize_to_tray()
+        elif self.timer > 0:
+            self.reset_standby_time()
         else:
-            subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-            print(f'Standby reset to {self.standby_time}')
             self.master.destroy()
 
 
