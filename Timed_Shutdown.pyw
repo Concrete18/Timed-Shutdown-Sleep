@@ -193,7 +193,6 @@ class Timer:
         '''
         Resets standby time to previous or default value.
         '''
-        # TODO fix extra repeat on cancel
         if self.plugged_in:
             subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
             print(f'Set Plugged in sleep standby to {self.standby_time}.')
@@ -238,8 +237,8 @@ class Timer:
         '''
         Runs the selected action.
         '''
-        self.reset_standby_time()
         if self.cancel == 0:  # last moment check to see if cancel was pressed
+            self.reset_standby_time()
             if not self.keep_tray:
                 self.Timer_Display.config(text=f'Time Left till {self.action}: 0:00')
             if self.action == 'Sleep':
