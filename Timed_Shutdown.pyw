@@ -154,7 +154,7 @@ class Timer:
         '''
         battery = psutil.sensors_battery()
         if battery is None:
-            return False
+            return True
         else:
             return battery.power_plugged
 
