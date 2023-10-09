@@ -1,12 +1,10 @@
 import tkinter as Tk
-import PySimpleGUIWx as sg
 from time import sleep
 import datetime as dt
 import os, json, threading, subprocess, psutil
 
 
 class Timer:
-
     # sets script directory in case current working directory is different
     script_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(script_dir)
@@ -18,7 +16,6 @@ class Timer:
     timer = 0
     cancel = 0
     action = ""
-    keep_tray = 0
 
     def __init__(self):
         """
@@ -28,11 +25,7 @@ class Timer:
         with open("config.json") as json_file:
             data = json.load(json_file)
         # settings
-        self.enable_minimize = data["settings"]["enable_minimize"]
         self.debug = data["settings"]["debug"]
-        # notification
-        self.toast_notif = data["notification"]["toast_notification"]
-        self.notif_threshold = data["notification"]["notification_threshold"]
         # standby
         use_default_standby = data["standby"]["use_default_standby"]
         config_standby_outlet = data["standby"]["default_sleep_standby_outlet"]
@@ -143,40 +136,6 @@ class Timer:
 
         self.master.mainloop()
 
-    def minimize_to_tray(self):
-        """
-        hides interface and opens up a loop for a tray icon.
-        """
-        if self.debug:
-            print("Minimized")
-        # hides window
-        self.master.withdraw()
-        # sets up tray
-        icon = f"Images\{self.action}.ico"
-        self.Tray = sg.SystemTray(
-            menu=["menu", ["Exit"]], filename=icon, tooltip=self.title
-        )
-        # starts tray loop
-        self.keep_tray = 1
-        while self.keep_tray:
-            event = self.Tray.Read()
-            if self.debug:
-                print(event)
-            if event == "__ACTIVATED__" or self.keep_tray == 0:
-                break
-            elif event == "Exit":
-                self.reset_standby_time()
-                self.master.destroy()
-                exit()
-        # shows window again after tray loop is exited
-        self.Tray.Close()
-        if self.debug:
-            print("Tray closed")
-        self.master.deiconify()
-        self.keep_tray = 0
-        if self.debug:
-            print("Window unhidden")
-
     @staticmethod
     def plugged_in():
         """
@@ -250,26 +209,12 @@ class Timer:
             subprocess.call(f"powercfg -change -standby-timeout-ac {delay + 5}")
         threading.Thread(target=self.time_tracker, daemon=True).start()
 
-    def timer_end_warning(self):
-        """
-        Creates a Windows Notification when the timer is close to ending.
-        Notification duration and popup time set in config.
-        """
-        if self.keep_tray:
-            if self.debug:
-                print("Showing tray balloon")
-            notif_msg = f"{self.timer} seconds till {self.action}."
-            notif_miliseconds = self.notif_threshold * 1000
-            self.Tray.ShowMessage(self.title, notif_msg, time=notif_miliseconds)
-
     def run_action(self):
         """
         Runs the selected action.
         """
         if self.cancel == 0:  # last moment check to see if cancel was pressed
             self.reset_standby_time()
-            if not self.keep_tray:
-                self.Timer_Display.config(text=f"Time Left till {self.action}: 0:00")
             if self.action == "Sleep":
                 os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
             elif self.action == "Shutdown":
@@ -283,37 +228,27 @@ class Timer:
         """
         self.cancel = 0
         self.last_run = dt.datetime.now()
-        while self.timer > 0:
-            # runs toast notification at specific time remaining
-            if self.timer == self.notif_threshold:
-                self.timer_end_warning()
+        while self.timer > -1:
             # detects if computer went to sleep during timer
             if dt.datetime.now() - self.last_run >= dt.timedelta(seconds=20):
                 print("Sleep Detected")
                 self.cancel_timer()
                 break
-            self.last_run = (
-                dt.datetime.now()
-            )  # sets last second increment for sleep detection
+            # sets last second increment for sleep detection
+            self.last_run = dt.datetime.now()
             min_left = int(self.timer / 60)
             sec_left = "{0:0=2d}".format(int(self.timer % 60))
             info_text = f"Time Left till {self.action}: {min_left}:{sec_left}"
-            if self.keep_tray:
-                self.Tray.update(tooltip=self.title + "\n" + info_text)
-            else:
-                self.Timer_Display.config(text=info_text)
+            self.Timer_Display.config(text=info_text)
             sleep(1)
             # detects cancel button press
             if self.cancel == 1:
                 # TODO check if cancel_timer is needed here
                 break
             self.timer -= 1
-        if (
-            self.debug_testing
-        ):  # if debug_testing is True, skips actual final action for testin
+        # if debug_testing is True, skips actual final action for testin
+        if self.debug_testing:
             print(f"Computer {self.action}")
-            if self.keep_tray:
-                self.Tray.Close()
             exit()
         else:
             self.run_action()
@@ -336,11 +271,8 @@ class Timer:
     def close_protocol(self):
         """
         Sets standby time to current default using cmd call and then destroys main window.
-        If enable_minimize is 1 then it will minimize to tray instead and only hide the main window.
         """
-        if self.timer > 0 and self.enable_minimize:
-            self.minimize_to_tray()
-        elif self.timer > 0:
+        if self.timer > 0:
             self.reset_standby_time()
         else:
             self.master.destroy()
