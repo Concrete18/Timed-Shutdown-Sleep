@@ -1,3 +1,4 @@
+# standard library
 import tkinter as Tk
 from time import sleep
 import datetime as dt
@@ -276,7 +277,3 @@ class Timer:
             self.reset_standby_time()
         else:
             self.master.destroy()
-
-
-if __name__ == "__main__":
-    Timer().open_window()

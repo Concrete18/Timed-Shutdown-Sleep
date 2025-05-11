@@ -1,15 +1,11 @@
 {
-    "settings":{
-        "debug":0
-    },
-    "standby":{
-        "default_sleep_standby_outlet":45,
-        "default_sleep_standby_battery":5,
-        "use_default_standby":0,
-        "max_standby_time_in_min":120
-    },
-    "notification":{
-        "notification_threshold":10,
-        "toast_notification":0
-    }
+  "settings": {
+    "debug": 0
+  },
+  "standby": {
+    "default_sleep_standby_outlet": 45,
+    "default_sleep_standby_battery": 5,
+    "use_default_standby": 0,
+    "max_standby_time_in_min": 120
+  }
 }
