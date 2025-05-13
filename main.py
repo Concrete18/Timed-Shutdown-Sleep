@@ -157,10 +157,9 @@ class Timer:
         last_check = time.time()
         if self.debug:
             print(f"\nStarting test for {action}")
-            print(f"wait time: {self.wait_time}")
-            print(f"start time: {start_time}")
-            print(f"end time:   {end_time}\n")
-
+            print(f"Wait Time: {self.wait_time:,.0f} Seconds")
+            print(f"Start Time: {start_time:02.0f}")
+            print(f"End Time:   {end_time:02.0f}\n")
         while True:
             cur_time = time.time()
             if cur_time - last_check > 20:
@@ -169,7 +168,8 @@ class Timer:
                 return
             last_check = cur_time
             time_left = end_time - last_check
-            print(f"{time_left:.0f}")
+            if self.debug:
+                print(f"{time_left:,.0f} Seconds Left        ", end="\r", flush=True)
             if time_left < 0:
                 self.cancel_timer()
                 break
@@ -182,7 +182,7 @@ class Timer:
                 self.cancel_timer()
                 return
         if self.debug:
-            print(f"Would perform: {action}")
+            print(f"Activating {action}")
         else:
             perform_action(action, self.standby_time)
 
