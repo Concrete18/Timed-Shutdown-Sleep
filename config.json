@@ -1,6 +1,6 @@
 {
   "settings": {
-    "debug": 0
+    "debug": 1
   },
   "standby": {
     "default_sleep_standby_outlet": 45,

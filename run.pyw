@@ -1,4 +1,4 @@
 from main import Timer
 
 
-Timer().open_window()
+Timer().open_interface()

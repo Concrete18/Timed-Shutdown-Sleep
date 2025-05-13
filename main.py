@@ -1,279 +1,213 @@
 # standard library
-import tkinter as Tk
-from time import sleep
+import tkinter as tk
 import datetime as dt
-import os, json, threading, subprocess, psutil
+import os, json, threading, subprocess, time
+
+# local imports
+from library.windows import *
 
 
 class Timer:
-    # sets script directory in case current working directory is different
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(script_dir)
+    def __init__(self) -> None:
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # var init
-    debug_testing = 0  # for skipping shutdown and sleep
-    title = "Timed Shutdown and Sleep"
-    last_run = dt.datetime.now()
-    timer = 0
-    cancel = 0
-    action = ""
+        self.config = self.load_config()
+        self.debug = self.config["settings"]["debug"]
 
-    def __init__(self):
-        """
-        Sets default settings from config.json.
-        """
-        # config init
-        with open("config.json") as json_file:
-            data = json.load(json_file)
-        # settings
-        self.debug = data["settings"]["debug"]
-        # standby
-        use_default_standby = data["standby"]["use_default_standby"]
-        config_standby_outlet = data["standby"]["default_sleep_standby_outlet"]
-        config_standby_battery = data["standby"]["default_sleep_standby_battery"]
-        self.max_standby_time = data["standby"]["max_standby_time_in_min"]
-        if use_default_standby:
-            if self.check_for_battery_use():
-                self.standby_time = config_standby_battery
-            else:
-                self.standby_time = config_standby_outlet
-        else:
-            self.standby_time = self.get_standby_time()
+        self.title = "Timed Shutdown and Sleep"
+        self.wait_time = 0
+        self.cancel = 0
+        self.action = ""
+        self.standby_time = self.init_standby_time()
+        self.main = None
 
-    def open_window(self):
-        """
-        Opens the tkinter window.
-        """
-        # defaults for background and fonts
-        Background = "White"
-        BoldBaseFont = "Arial Bold"
-        BaseFont = "Arial"
+    def load_config(self) -> dict:
+        config_path = os.path.join(self.script_dir, "config.json")
+        with open(config_path) as f:
+            return json.load(f)
 
-        self.master = Tk.Tk()
-        # window size
+    def init_standby_time(self) -> int:
+        cfg = self.config["standby"]
+        if cfg["use_default_standby"]:
+            return (
+                cfg["default_sleep_standby_battery"]
+                if self.using_battery()
+                else cfg["default_sleep_standby_outlet"]
+            )
+
+        minutes = get_current_standby_time()
+        max_time = self.config["standby"]["max_standby_time_in_min"]
+        return min(minutes, max_time) if max_time > 0 else minutes
+
+    def open_interface(self) -> None:
+        self.main = tk.Tk()
+        self.main.title(self.title)
+        self.main.resizable(False, False)
+        self.main.iconbitmap(os.path.join(self.script_dir, "Images", "Default.ico"))
+        self.main.configure(bg="white")
+        self.main.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        self.build_gui()
+        self.main.mainloop()
+
+    def build_gui(self) -> None:
+        padding_x, padding_y = 14, 10
+        # TODO change to a new font
+        background = "white"
+        base_font = ("Arial", 12)
+        bold_font = ("Arial Bold", 12)
+
+        # Center window
         app_width, app_height = 395, 200
-        width = int((self.master.winfo_screenwidth() - app_width) / 2)
-        height = int((self.master.winfo_screenheight() - app_height) / 2)
-        self.master.geometry(f"+{width}+{height}")
-        # self.master.geometry(f'{app_width}x{app_height}+{width}+{height}')
-        self.master.resizable(width=False, height=False)
-        # other
-        self.master.title(self.title)
-        self.master.iconbitmap("Images\Default.ico")
-        self.master.configure(bg=Background)
-        self.master.wm_protocol("WM_DELETE_WINDOW", self.close_protocol)
+        screen_w = self.main.winfo_screenwidth()
+        screen_h = self.main.winfo_screenheight()
+        pos_x = int((screen_w - app_width) / 2)
+        pos_y = int((screen_h - app_height) / 2)
+        self.main.geometry(f"{app_width}x{app_height}+{pos_x}+{pos_y}")
 
-        self.Title_Frame = Tk.Frame(self.master, bg=Background)
-        self.Title_Frame.grid(columnspan=4, padx=(20, 20), pady=(5, 10))
+        # Title and info
+        title_frame = tk.Frame(self.main, bg=background)
+        title_frame.grid(columnspan=4, padx=20, pady=(5, 10))
 
-        self.current_standby_info = (
-            f"Current Standby Time: {self.standby_time} minutes."
+        standby_info = f"Current Standby Time: {self.standby_time} minutes."
+        instructions = "Enter time in minutes then click desired action"
+        info_text = f"{standby_info}\n{instructions}"
+
+        info_label = tk.Label(
+            title_frame, text=info_text, font=bold_font, bg=background, anchor="center"
         )
-        self.instruction = "Enter time in minutes then click desired action"
-        self.info_label = Tk.Label(
-            self.Title_Frame,
-            text=f"{self.current_standby_info}\n{self.instruction}",
-            font=(BoldBaseFont, 12),
-            bg=Background,
-            anchor="center",
-        )
-        self.info_label.grid(columnspan=3, row=1, pady=(10, 0))
+        info_label.grid(columnspan=3, row=0, pady=(10, 0))
 
-        pad_x, pad_y = 14, 10
-        self.Sleep_Button = Tk.Button(
-            self.master,
-            text=f"Sleep",
-            font=(BaseFont, 12),
+        # Buttons and entry
+        self.timer_value = tk.StringVar(value="30")
+        self.sleep_button = tk.Button(
+            self.main,
+            text="Sleep",
+            font=base_font,
             width=10,
-            command=lambda: self.timed_shutdown_sleep("Sleep"),
+            command=lambda: self.start_timer("Sleep"),
         )
-        self.Sleep_Button.grid(column=0, row=3, padx=pad_x, pady=pad_y)
+        self.sleep_button.grid(column=0, row=1, padx=padding_x, pady=padding_y)
 
-        self.timer_value = Tk.StringVar(self.master)
-        self.timer_value.set(30)
-
-        self.Timer_Entry = Tk.Spinbox(
-            self.master,
+        self.timer_entry = tk.Spinbox(
+            self.main,
             textvariable=self.timer_value,
             from_=1,
             to=1000,
             width=9,
             bd=2,
-            font=(BaseFont, 13),
+            font=("Arial", 13),
             justify="center",
             bg="grey95",
         )
-        self.Timer_Entry.grid(column=1, row=3, padx=pad_x, pady=pad_y)
+        self.timer_entry.grid(column=1, row=1, padx=padding_x, pady=padding_y)
 
-        self.Shutdown_Button = Tk.Button(
-            self.master,
-            text=f"Shutdown",
-            font=(BaseFont, 12),
+        self.shutdown_button = tk.Button(
+            self.main,
+            text="Shutdown",
+            font=base_font,
             width=10,
-            command=lambda: self.timed_shutdown_sleep("Shutdown"),
+            command=lambda: self.start_timer("Shutdown"),
         )
-        self.Shutdown_Button.grid(column=2, row=3, padx=pad_x, pady=pad_y)
+        self.shutdown_button.grid(column=2, row=1, padx=padding_x, pady=padding_y)
 
-        self.Timer_Frame = Tk.Frame(self.master, bg=Background)
-        self.Timer_Frame.grid(columnspan=3, row=4, padx=(20, 20), pady=(5, 10))
+        # Timer display and cancel
+        timer_frame = tk.Frame(self.main, bg=background)
+        timer_frame.grid(columnspan=3, row=2, padx=20, pady=(5, 10))
 
-        self.Timer_Display = Tk.Label(
-            self.Timer_Frame,
+        self.Timer_Display = tk.Label(
+            timer_frame,
             text="Time Left: Waiting to start",
-            font=(BoldBaseFont, 12),
-            bg=Background,
+            font=bold_font,
+            bg=background,
         )
-        self.Timer_Display.grid(columnspan=4, row=0)
+        self.Timer_Display.grid(columnspan=3, row=0)
 
-        self.Cancel_Button = Tk.Button(
-            self.Timer_Frame,
+        self.cancel_button = tk.Button(
+            timer_frame,
             text=f"Cancel",
-            font=(BaseFont, 12),
+            font=(base_font, 12),
             width=10,
             command=self.cancel_timer,
             state="disabled",
         )
-        self.Cancel_Button.grid(columnspan=4, row=1, pady=(10, 6))
+        self.cancel_button.grid(columnspan=4, row=1, pady=(10, 6))
 
-        self.master.mainloop()
-
-    @staticmethod
-    def plugged_in():
-        """
-        Determines if the computer us currently plugged in or not. Returns True if it is plugged in and False if not.
-        """
-        battery = psutil.sensors_battery()
-        if battery is None:
-            return True
-        else:
-            return battery.power_plugged
-
-    def get_standby_time(self):
-        """
-        Gets Current Scheme Sleep Standby time using cmd output.
-        """
-        # gets current power current_scheme
-        current_scheme = str(
-            subprocess.check_output([f"powercfg", "/getactivescheme"])
-        ).split(" ")[3]
-        # finds output of powercfg command using current_scheme
-        output = str(
-            subprocess.check_output([f"powercfg", "/q", current_scheme, "SUB_SLEEP"])
-        )
-        # determines if what standby time to use
-        self.plugged_in = self.plugged_in()
-        # sets which Power Setting to check based on power state
-        if self.plugged_in:
-            string = "Current AC Power Setting Index:"
-        else:
-            string = "Current DC Power Setting Index:"
-        # converts output from hexidecimal into decimal
-        cur_standby_time = int(output.partition(str(string))[2].split(" ")[1][:10], 16)
-        # sets standby_time to minutes from cur_standby_time
-        standby_time = int(cur_standby_time / 60)
-        # sets standby_timeto max ammount if max_standby_time greater then 0
-        if self.max_standby_time > 0 and standby_time > self.max_standby_time:
-            standby_time = self.max_standby_time
-        print(f"Current Standby Time: {standby_time}")
-        if self.plugged_in:
-            print("Device is plugged in.")
-        else:
-            print("Battery is used.")
-        return standby_time
-
-    def reset_standby_time(self):
-        """
-        Resets standby time to previous or default value.
-        """
-        if self.plugged_in:
-            subprocess.call(f"powercfg -change -standby-timeout-ac {self.standby_time}")
-            print(f"Set Plugged in sleep standby to {self.standby_time}.")
-        else:
-            subprocess.call(f"powercfg -change -standby-timeout-dc {self.standby_time}")
-            print(f"Set on battery sleep standby to {self.standby_time}.")
-
-    def timed_shutdown_sleep(self, event):
-        """
-        Sleeps or shuts down PC in the specified time frame.
-
-        Arguments:
-
-        event -- sleep or shutdown determines what happens when the timer expires
-        """
-        self.action = event
+    def start_timer(self, action):
+        self.action = action
         delay = float(self.timer_value.get())
-        self.Sleep_Button.config(state="disabled")
-        self.Shutdown_Button.config(state="disabled")
-        self.Cancel_Button.config(state="normal")
-        self.timer = delay * 60
+        self.wait_time = delay * 60
         if delay > self.standby_time:
-            subprocess.call(f"powercfg -change -standby-timeout-ac {delay + 5}")
-        threading.Thread(target=self.time_tracker, daemon=True).start()
+            temp_standby = str(int(delay + 5))
+            command = ["powercfg", "-change", "-standby-timeout-ac", temp_standby]
+            subprocess.call(command)
+        self.disable_buttons()
+        timer_thread = threading.Thread(
+            target=self.time_tracker,
+            name=f"Timed {action}",
+            args=[action],
+            daemon=True,
+        )
+        timer_thread.start()
 
-    def run_action(self):
-        """
-        Runs the selected action.
-        """
-        if self.cancel == 0:  # last moment check to see if cancel was pressed
-            self.reset_standby_time()
-            if self.action == "Sleep":
-                os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
-            elif self.action == "Shutdown":
-                os.system("shutdown /s /t 1")
-            else:
-                print("No Action was selected.")
-
-    def time_tracker(self):
-        """
-        Tracks time left with a new thread and runs the entered action when it reaches 0.
-        """
+    def time_tracker(self, action) -> None:
         self.cancel = 0
-        self.last_run = dt.datetime.now()
-        while self.timer > -1:
-            # detects if computer went to sleep during timer
-            if dt.datetime.now() - self.last_run >= dt.timedelta(seconds=20):
-                print("Sleep Detected")
+        start_time = time.time()
+        end_time = start_time + self.wait_time
+        last_check = time.time()
+        if self.debug:
+            print(f"\nStarting test for {action}")
+            print(f"wait time: {self.wait_time}")
+            print(f"start time: {start_time}")
+            print(f"end time:   {end_time}\n")
+
+        while True:
+            cur_time = time.time()
+            if cur_time - last_check > 20:
+                # cancels due to the OS likely going to sleep
+                self.cancel_timer()
+                return
+            last_check = cur_time
+            time_left = end_time - last_check
+            print(f"{time_left:.0f}")
+            if time_left < 0:
                 self.cancel_timer()
                 break
-            # sets last second increment for sleep detection
-            self.last_run = dt.datetime.now()
-            min_left = int(self.timer / 60)
-            sec_left = "{0:0=2d}".format(int(self.timer % 60))
-            info_text = f"Time Left till {self.action}: {min_left}:{sec_left}"
-            self.Timer_Display.config(text=info_text)
-            sleep(1)
-            # detects cancel button press
-            if self.cancel == 1:
-                # TODO check if cancel_timer is needed here
-                break
-            self.timer -= 1
-        # if debug_testing is True, skips actual final action for testin
-        if self.debug_testing:
-            print(f"Computer {self.action}")
-            exit()
-        else:
-            self.run_action()
+            mins, secs = divmod(time_left, 60)
+            time_left_str = f"{mins:.0f}:{secs:02.0f}"
+            self.Timer_Display.config(text=f"Time Left till {action}: {time_left_str}")
 
-    def cancel_timer(self):
-        """
-        Resets timer to unset and reconfigures buttons and labels to default state.
-        Sets computer standby to original settings or default setting.
-        """
-        self.reset_standby_time()
-        # sets loop ending variables
+            time.sleep(1)
+            if self.cancel:
+                self.cancel_timer()
+                return
+        if self.debug:
+            print(f"Would perform: {action}")
+        else:
+            perform_action(action, self.standby_time)
+
+    def cancel_timer(self) -> None:
+        reset_standby_time(self.standby_time)
         self.cancel = 1
-        self.timer = 0
-        # sets button states for canceled state
-        self.Sleep_Button.config(state="normal")
-        self.Shutdown_Button.config(state="normal")
-        self.Cancel_Button.config(state="disabled")
+        self.wait_time = 0
+        self.enable_buttons()
         self.Timer_Display.config(text="Time Left: Waiting to start")
 
-    def close_protocol(self):
-        """
-        Sets standby time to current default using cmd call and then destroys main window.
-        """
-        if self.timer > 0:
-            self.reset_standby_time()
-        else:
-            self.master.destroy()
+    def disable_buttons(self) -> None:
+        self.sleep_button.config(state="disabled")
+        self.shutdown_button.config(state="disabled")
+        self.cancel_button.config(state="normal")
+
+    def enable_buttons(self) -> None:
+        self.sleep_button.config(state="normal")
+        self.shutdown_button.config(state="normal")
+        self.cancel_button.config(state="disabled")
+
+    def on_close(self) -> None:
+        if self.wait_time > 0:
+            reset_standby_time(self.standby_time)
+        self.main.destroy()
+
+
+if __name__ == "__main__":
+    Timer().open_interface()

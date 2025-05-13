@@ -4,7 +4,7 @@ Set timer to shutdown or sleep after a specific minute timer expires.
 
 Built for windows only.
 
-![Image of Home Control Interface](https://raw.githubusercontent.com/Concrete18/Timed-Shutdown-Sleep/master/Images/Screenshot.png)
+![Image of Home Control Interface](https://raw.githubusercontent.com/Concrete18/Timed-Shutdown-Sleep/main/Images/Screenshot.png)
 
 <!-- ## Requirements
 
