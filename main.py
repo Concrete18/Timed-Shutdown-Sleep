@@ -162,9 +162,8 @@ class Timer:
 
         Output Example: 08:00 PM
         """
-        # TODO remove leading 0 from single digit hours
         datetime = dt.datetime.fromtimestamp(seconds)
-        return datetime.strftime("%I:%M %p")
+        return datetime.strftime("%I:%M %p").replace(" 0", " ")
 
     def set_timer_display(self, active_data: dict = None):
         if active_data:
