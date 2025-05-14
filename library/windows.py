@@ -4,7 +4,7 @@ import psutil, subprocess, os
 
 def using_battery() -> bool:
     """
-    ph
+    Returns True if computer is using battery.
     """
     battery = psutil.sensors_battery()
     return battery is not None and not battery.power_plugged
@@ -21,7 +21,7 @@ def get_active_power_scheme() -> str:
 
 def get_current_standby_time() -> int:
     """
-    ph
+    Gets the PC's current standby time before it goes to sleep.
     """
     scheme_guid = get_active_power_scheme()
     output = subprocess.check_output(
@@ -36,20 +36,22 @@ def get_current_standby_time() -> int:
     return int(int(standby_raw, 16) / 60)
 
 
-def reset_standby_time(standby_time: int) -> None:
+def set_standby_time(standby_time: int) -> None:
     """
-    ph
+    Sets standby time before sleep.
     """
     arg = "-standby-timeout-dc" if using_battery() else "-standby-timeout-ac"
     subprocess.call(["powercfg", "-change", arg, str(standby_time)])
 
 
-def perform_action(action, standby_time) -> None:
+def perform_action(action) -> None:
     """
-    ph
+    Performs given action.
     """
-    reset_standby_time(standby_time)
-    if action == "Sleep":
-        os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
-    elif action == "Shutdown":
-        os.system("shutdown /s /t 1")
+    match action:
+        case "Sleep":
+            os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
+        case "Shutdown":
+            os.system("shutdown /s /t 1")
+        case _:
+            print(f"{action} Not Found")
