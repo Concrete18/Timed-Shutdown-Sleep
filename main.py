@@ -1,5 +1,6 @@
 # standard library
 import tkinter as tk
+from tkinter import ttk
 import datetime as dt
 import os, json, threading, time
 
@@ -48,7 +49,7 @@ class Timer:
     def open_interface(self) -> None:
         self.main = tk.Tk()
         self.main.title(self.title)
-        self.main.resizable(False, False)
+        # self.main.resizable(False, False)
         self.main.iconbitmap(os.path.join(self.script_dir, "Images", "Default.ico"))
         self.main.configure(bg="white")
         self.main.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -57,87 +58,103 @@ class Timer:
         self.main.mainloop()
 
     def build_gui(self) -> None:
-        padding_x, padding_y = 14, 10
-        # TODO change to a new font
+        padding_x, padding_y = 8, 1
+        base_font = ("Segoe UI", 11)
+        bold_font = ("Segoe UI", 11, "bold")
         background = "white"
-        base_font = ("Arial", 12)
-        bold_font = ("Arial Bold", 12)
+
+        # Apply ttk theme and styling
+        style = ttk.Style(self.main)
+        style.theme_use("clam")  # Use 'clam', 'alt', or 'default'
+
+        style.configure(
+            "Header.TLabel",
+            font=bold_font,
+            background=background,
+            padding=5,
+        )
+        style.configure("TLabel", font=base_font, background=background)
+        style.configure("TButton", font=base_font)
+        style.configure("TSpinbox", font=base_font)
+
+        self.main.configure(bg=background)
 
         # Center window
-        app_width, app_height = 395, 225
+        app_width, app_height = 378, 220
         screen_w = self.main.winfo_screenwidth()
         screen_h = self.main.winfo_screenheight()
         pos_x = int((screen_w - app_width) / 2)
         pos_y = int((screen_h - app_height) / 2)
         self.main.geometry(f"{app_width}x{app_height}+{pos_x}+{pos_y}")
+        self.main.title("Sleep/Shutdown Timer")
 
         # Title and info
-        title_frame = tk.Frame(self.main, bg=background)
-        title_frame.grid(columnspan=4, padx=20, pady=(5, 10))
+        title_frame = ttk.Frame(self.main)
+        title_frame.grid(columnspan=3, padx=20, pady=(5, 5))
 
         standby_info = f"Current Standby Time: {self.default_standby_time} minutes."
         instructions = "Enter time in minutes then click desired action"
         info_text = f"{standby_info}\n{instructions}"
 
-        info_label = tk.Label(
-            title_frame, text=info_text, font=bold_font, bg=background, anchor="center"
+        info_label = ttk.Label(
+            title_frame,
+            text=info_text,
+            style="Header.TLabel",
+            anchor="center",
+            justify="center",
         )
-        info_label.grid(columnspan=3, row=0, pady=(10, 0))
+        info_label.grid(columnspan=3, row=0)
 
         # Buttons and entry
         self.timer_value = tk.StringVar(value="30")
-        self.sleep_button = tk.Button(
+        self.sleep_button = ttk.Button(
             self.main,
             text="Sleep",
-            font=base_font,
-            width=10,
             command=lambda: self.start_timer("Sleep"),
         )
         self.sleep_button.grid(column=0, row=1, padx=padding_x, pady=padding_y)
 
-        self.timer_entry = tk.Spinbox(
+        self.timer_entry = ttk.Spinbox(
             self.main,
             textvariable=self.timer_value,
             from_=1,
             to=1000,
-            width=9,
-            bd=2,
-            font=("Arial", 13),
+            width=10,
             justify="center",
-            bg="grey95",
+            wrap=True,
         )
         self.timer_entry.grid(column=1, row=1, padx=padding_x, pady=padding_y)
 
-        self.shutdown_button = tk.Button(
+        self.shutdown_button = ttk.Button(
             self.main,
             text="Shutdown",
-            font=base_font,
-            width=10,
             command=lambda: self.start_timer("Shutdown"),
         )
         self.shutdown_button.grid(column=2, row=1, padx=padding_x, pady=padding_y)
 
         # Timer display and cancel
-        timer_frame = tk.Frame(self.main, bg=background)
+        timer_frame = ttk.Frame(self.main)
         timer_frame.grid(columnspan=3, row=2, padx=20, pady=(5, 10))
 
-        self.Timer_Display = tk.Label(
+        self.Timer_Display = ttk.Label(
             timer_frame,
             text=self.unset_text,
-            font=bold_font,
-            bg=background,
+            style="Header.TLabel",
+            anchor="center",
+            justify="center",
         )
         self.Timer_Display.grid(columnspan=3, row=0)
 
-        self.cancel_button = tk.Button(
-            timer_frame,
-            text=f"Cancel",
-            font=(base_font, 12),
-            width=10,
+        cancel_frame = ttk.Frame(self.main)
+        cancel_frame.grid(column=0, row=3, columnspan=3)
+
+        self.cancel_button = ttk.Button(
+            cancel_frame,
+            text="Cancel",
             command=self.cancel_timer,
             state="disabled",
         )
-        self.cancel_button.grid(columnspan=4, row=1, pady=(10, 6))
+        self.cancel_button.grid()
 
     def start_timer(self, action):
         self.action = action
