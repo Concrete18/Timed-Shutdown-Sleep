@@ -80,7 +80,7 @@ class Timer:
         self.main.configure(bg=background)
 
         # Center window
-        app_width, app_height = 378, 220
+        app_width, app_height = 377, 222
         screen_w = self.main.winfo_screenwidth()
         screen_h = self.main.winfo_screenheight()
         pos_x = int((screen_w - app_width) / 2)
