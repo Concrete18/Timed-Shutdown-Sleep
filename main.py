@@ -23,7 +23,7 @@ class Timer:
         self.default_standby_time = self.get_default_standby_time()
         if self.debug:
             print(self.default_standby_time)
-        self.main = None
+        self.main = tk.Tk()
 
     def load_config(self) -> dict:
         config_path = os.path.join(self.script_dir, "config.json")
@@ -38,7 +38,7 @@ class Timer:
         if cfg["use_default_standby"]:
             return (
                 cfg["default_sleep_standby_battery"]
-                if self.using_battery()
+                if using_battery()
                 else cfg["default_sleep_standby_outlet"]
             )
 
@@ -47,7 +47,6 @@ class Timer:
         return min(minutes, max_time) if max_time > 0 else minutes
 
     def open_interface(self) -> None:
-        self.main = tk.Tk()
         self.main.title(self.title)
         # self.main.resizable(False, False)
         self.main.iconbitmap(os.path.join(self.script_dir, "Images", "Default.ico"))
@@ -80,7 +79,7 @@ class Timer:
         self.main.configure(bg=background)
 
         # Center window
-        app_width, app_height = 377, 222
+        app_width, app_height = 376, 220
         screen_w = self.main.winfo_screenwidth()
         screen_h = self.main.winfo_screenheight()
         pos_x = int((screen_w - app_width) / 2)
@@ -182,10 +181,10 @@ class Timer:
         datetime = dt.datetime.fromtimestamp(seconds)
         return datetime.strftime("%I:%M %p").replace(" 0", " ")
 
-    def set_timer_display(self, active_data: dict = None):
+    def set_timer_display(self, active_data: dict = {}) -> None:
         if active_data:
             action = active_data.get("action", "Unknown")
-            mins, secs = active_data.get("mins_secs")
+            mins, secs = active_data.get("mins_secs", (None, None))
             end_time = active_data.get("end_time")
             time_left_str = f"{mins:.0f}:{secs:02.0f}"
             text = f"Time Left till {action}: {time_left_str}\nAction Time: {end_time}"
